@@ -53,6 +53,7 @@ describe("CLI", () => {
       watch: false,
       autoShutdown: false,
       shutdownDelay: 0,
+      logLevel: "debug",
     });
   });
 
@@ -66,6 +67,7 @@ describe("CLI", () => {
       watch: true,
       autoShutdown: false,
       shutdownDelay: 0,
+      logLevel: "debug",
     });
   });
 
@@ -79,6 +81,7 @@ describe("CLI", () => {
       watch: false,
       autoShutdown: false,
       shutdownDelay: 0,
+      logLevel: "debug",
     });
   });
 
@@ -92,6 +95,7 @@ describe("CLI", () => {
       watch: false,
       autoShutdown: false,
       shutdownDelay: 0,
+      logLevel: "debug",
     });
   });
 
@@ -105,6 +109,7 @@ describe("CLI", () => {
       watch: true,
       autoShutdown: false,
       shutdownDelay: 0,
+      logLevel: "debug",
     });
   });
 

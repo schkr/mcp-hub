@@ -183,9 +183,15 @@ class Logger {
   }
 }
 
-// Create logger instance
+// Create logger instance; validate env so LOG_LEVELS[level] is never undefined
+const VALID_LOG_LEVELS = ["error", "warn", "info", "debug"];
+function normalizedLogLevelFromEnv() {
+  const raw = process.env.MCP_HUB_LOG_LEVEL;
+  const normalized = typeof raw === "string" ? raw.trim().toLowerCase() : "";
+  return VALID_LOG_LEVELS.includes(normalized) ? normalized : "debug";
+}
 const logger = new Logger({
-  logLevel: process.env.MCP_HUB_LOG_LEVEL || "debug",
+  logLevel: normalizedLogLevelFromEnv(),
 });
 
 // Handle unhandled errors
