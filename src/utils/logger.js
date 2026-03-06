@@ -185,7 +185,7 @@ class Logger {
 
 // Create logger instance
 const logger = new Logger({
-  logLevel: "debug",
+  logLevel: process.env.MCP_HUB_LOG_LEVEL || "debug",
 });
 
 // Handle unhandled errors

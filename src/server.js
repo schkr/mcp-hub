@@ -930,6 +930,9 @@ router.use((err, req, res, next) => {
 
 // Start the server with options
 export async function startServer(options = {}) {
+  if (options.logLevel) {
+    logger.setLogLevel(options.logLevel);
+  }
   serviceManager = new ServiceManager(options);
 
   try {
