@@ -80,14 +80,19 @@ async function run() {
         default: 0,
       },
       "log-level": {
-        describe: "Log level to use (error, warn, info, debug)",
+        describe: "Log level (error, warn, info, debug). Default: info.",
         type: "string",
         choices: ["error", "warn", "info", "debug"],
         default: (() => {
           const raw = process.env.MCP_HUB_LOG_LEVEL;
           const normalized = typeof raw === "string" ? raw.trim().toLowerCase() : "";
-          return ["error", "warn", "info", "debug"].includes(normalized) ? normalized : "debug";
+          return ["error", "warn", "info", "debug"].includes(normalized) ? normalized : "info";
         })(),
+      },
+      debug: {
+        describe: "Set log level to debug (shortcut for --log-level debug)",
+        type: "boolean",
+        default: false,
       },
     })
     .example("mcp-hub --port 3000 --config ./global.json --config ./project.json")
@@ -96,15 +101,14 @@ async function run() {
     .fail(handleParseError).argv;
 
   try {
+    const logLevel = argv.debug ? "debug" : argv["log-level"];
     await startServer({
       port: argv.port,
       config: argv.config, // This will now be an array of paths
       watch: argv.watch,
       autoShutdown: argv["auto-shutdown"],
       shutdownDelay: argv["shutdown-delay"],
-      ...(typeof argv["log-level"] === "string" && argv["log-level"].trim() !== ""
-        ? { logLevel: argv["log-level"] }
-        : {}),
+      ...(typeof logLevel === "string" && logLevel.trim() !== "" ? { logLevel } : {}),
     });
   } catch (error) {
     process.exit(1)

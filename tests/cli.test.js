@@ -53,7 +53,7 @@ describe("CLI", () => {
       watch: false,
       autoShutdown: false,
       shutdownDelay: 0,
-      logLevel: "debug",
+      logLevel: "info",
     });
   });
 
@@ -67,7 +67,7 @@ describe("CLI", () => {
       watch: true,
       autoShutdown: false,
       shutdownDelay: 0,
-      logLevel: "debug",
+      logLevel: "info",
     });
   });
 
@@ -81,7 +81,7 @@ describe("CLI", () => {
       watch: false,
       autoShutdown: false,
       shutdownDelay: 0,
-      logLevel: "debug",
+      logLevel: "info",
     });
   });
 
@@ -95,7 +95,7 @@ describe("CLI", () => {
       watch: false,
       autoShutdown: false,
       shutdownDelay: 0,
-      logLevel: "debug",
+      logLevel: "info",
     });
   });
 
@@ -109,7 +109,7 @@ describe("CLI", () => {
       watch: true,
       autoShutdown: false,
       shutdownDelay: 0,
-      logLevel: "debug",
+      logLevel: "info",
     });
   });
 
@@ -124,6 +124,20 @@ describe("CLI", () => {
       autoShutdown: false,
       shutdownDelay: 0,
       logLevel: "error",
+    });
+  });
+
+  it("should pass log-level debug when --debug is set", async () => {
+    setArgv(["--port", "3000", "--config", "./config.json", "--debug"]);
+    await import("../src/utils/cli.js");
+
+    expect(server.startServer).toHaveBeenCalledWith({
+      port: 3000,
+      config: ["./config.json"],
+      watch: false,
+      autoShutdown: false,
+      shutdownDelay: 0,
+      logLevel: "debug",
     });
   });
 

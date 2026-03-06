@@ -188,7 +188,7 @@ const VALID_LOG_LEVELS = ["error", "warn", "info", "debug"];
 function normalizedLogLevelFromEnv() {
   const raw = process.env.MCP_HUB_LOG_LEVEL;
   const normalized = typeof raw === "string" ? raw.trim().toLowerCase() : "";
-  return VALID_LOG_LEVELS.includes(normalized) ? normalized : "debug";
+  return VALID_LOG_LEVELS.includes(normalized) ? normalized : "info";
 }
 const logger = new Logger({
   logLevel: normalizedLogLevelFromEnv(),
