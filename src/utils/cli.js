@@ -79,6 +79,12 @@ async function run() {
         type: "number",
         default: 0,
       },
+      "log-level": {
+        describe: "Log level to use (error, warn, info, debug)",
+        type: "string",
+        choices: ["error", "warn", "info", "debug"],
+        default: process.env.MCP_HUB_LOG_LEVEL,
+      },
     })
     .example("mcp-hub --port 3000 --config ./global.json --config ./project.json")
     .help("h")
@@ -92,6 +98,7 @@ async function run() {
       watch: argv.watch,
       autoShutdown: argv["auto-shutdown"],
       shutdownDelay: argv["shutdown-delay"],
+      logLevel: argv["log-level"],
     });
   } catch (error) {
     process.exit(1)

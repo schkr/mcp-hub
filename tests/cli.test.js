@@ -49,8 +49,10 @@ describe("CLI", () => {
 
     expect(server.startServer).toHaveBeenCalledWith({
       port: 3000,
-      config: "./config.json",
+      config: ["./config.json"],
       watch: false,
+      autoShutdown: false,
+      shutdownDelay: 0,
     });
   });
 
@@ -60,8 +62,10 @@ describe("CLI", () => {
 
     expect(server.startServer).toHaveBeenCalledWith({
       port: 3000,
-      config: "./config.json",
+      config: ["./config.json"],
       watch: true,
+      autoShutdown: false,
+      shutdownDelay: 0,
     });
   });
 
@@ -71,8 +75,10 @@ describe("CLI", () => {
 
     expect(server.startServer).toHaveBeenCalledWith({
       port: 3000,
-      config: "./config.json",
+      config: ["./config.json"],
       watch: false,
+      autoShutdown: false,
+      shutdownDelay: 0,
     });
   });
 
@@ -82,8 +88,10 @@ describe("CLI", () => {
 
     expect(server.startServer).toHaveBeenCalledWith({
       port: 3000,
-      config: "./config.json",
+      config: ["./config.json"],
       watch: false,
+      autoShutdown: false,
+      shutdownDelay: 0,
     });
   });
 
@@ -93,8 +101,24 @@ describe("CLI", () => {
 
     expect(server.startServer).toHaveBeenCalledWith({
       port: 3000,
-      config: "./config.json",
+      config: ["./config.json"],
       watch: true,
+      autoShutdown: false,
+      shutdownDelay: 0,
+    });
+  });
+
+  it("should pass log-level to startServer", async () => {
+    setArgv(["--port", "3000", "--config", "./config.json", "--log-level", "error"]);
+    await import("../src/utils/cli.js");
+
+    expect(server.startServer).toHaveBeenCalledWith({
+      port: 3000,
+      config: ["./config.json"],
+      watch: false,
+      autoShutdown: false,
+      shutdownDelay: 0,
+      logLevel: "error",
     });
   });
 
@@ -117,7 +141,7 @@ describe("CLI", () => {
     setArgv(["--port", "3000", "--config", "./config.json"]);
     await import("../src/utils/cli.js");
 
-    expect(mockKill).toHaveBeenCalledWith(process.pid, "SIGINT");
+    expect(mockExit).toHaveBeenCalledWith(1);
   });
 
   it("should handle fatal errors", async () => {
@@ -127,6 +151,6 @@ describe("CLI", () => {
     setArgv(["--port", "3000", "--config", "./config.json"]);
     await import("../src/utils/cli.js");
 
-    expect(mockKill).toHaveBeenCalledWith(process.pid, "SIGINT");
+    expect(mockExit).toHaveBeenCalledWith(1);
   });
 });
