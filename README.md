@@ -9,7 +9,7 @@ MCP Hub acts as a central coordinator for MCP servers and clients, providing two
 1. **Management Interface** (/api/*): Manage multiple MCP servers through a unified REST API and web UI
 2. **MCP Server Interface** (/mcp): Connect ANY MCP client to access ALL server capabilities through a single endpoint
 
-This dual-interface approach means you can manage servers through the Hub's UI while MCP clients (Claude Desktop, Cline, etc.) only need to connect to one endpoint (`localhost:37373/mcp`) to access all capabilities. Implements [MCP 2025-03-26](https://modelcontextprotocol.io/specification/2025-03-26) specification.
+This dual-interface approach means you can manage servers through the Hub's UI while MCP clients (Claude Desktop, Cline, etc.) only need to connect to one endpoint (`localhost:37373/mcp`) to access all capabilities. The HTTP server listens on 127.0.0.1 only (localhost), so it is not reachable from other machines. Implements [MCP 2025-03-26](https://modelcontextprotocol.io/specification/2025-03-26) specification.
 
 ## Feature Support
 
