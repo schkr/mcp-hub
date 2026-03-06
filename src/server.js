@@ -43,6 +43,7 @@ class ServiceManager {
   constructor(options = {}) {
     this.config = options.config;
     this.port = options.port;
+    this.host = "127.0.0.1"; // Bind to localhost only; no network exposure
     this.autoShutdown = options.autoShutdown;
     this.shutdownDelay = options.shutdownDelay;
     this.watch = options.watch;
@@ -121,6 +122,7 @@ class ServiceManager {
     this.mcpHub = new MCPHub(this.config, {
       watch: this.watch,
       port: this.port,
+      host: this.host,
       marketplace,
     });
 
@@ -184,21 +186,23 @@ class ServiceManager {
 
   async startServer() {
     return new Promise((resolve, reject) => {
-      logger.info(`Starting HTTP server on port ${this.port}`, {
+      logger.info(`Starting HTTP server on ${this.host}:${this.port}`, {
+        host: this.host,
         port: this.port,
       });
 
-      //INFO: this doesn't throw EADDRINUSE in express@v5 but is thrown inside on("error")
-      this.server = app.listen(this.port, () => {
+      // Binds to 127.0.0.1 only (localhost). EADDRINUSE is handled via the server's "error" event.
+      this.server = app.listen(this.port, this.host, () => {
         logger.info("HTTP_SERVER_STARTED");
         resolve();
       });
 
       this.server.on("error", (error) => {
-        this.setState(HubState.ERROR, { message: error.message, code: error.code })
+        this.setState(HubState.ERROR, { message: error.message, code: error.code });
         logger.info(`HTTP_SERVER_START_ERROR: ${error.code}: ${error.message}`);
         reject(
           wrapError(error, "HTTP_SERVER_ERROR", {
+            host: this.host,
             port: this.port,
           })
         );
