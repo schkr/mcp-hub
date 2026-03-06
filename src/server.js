@@ -191,7 +191,7 @@ class ServiceManager {
         port: this.port,
       });
 
-      // Binds to 127.0.0.1 only (localhost). EADDRINUSE thrown inside on("error") in express@v5
+      // Binds to 127.0.0.1 only (localhost). EADDRINUSE is handled via the server's "error" event.
       this.server = app.listen(this.port, this.host, () => {
         logger.info("HTTP_SERVER_STARTED");
         resolve();
