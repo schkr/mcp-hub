@@ -17,12 +17,13 @@
  * - Automatic capability updates when servers are added/removed/restarted
  * 
  * EXAMPLE:
- * Just configure clients with with:
+ * Just configure clients with:
  * {
  *  "Hub": {
- *    "url": "http://localhost:${port}/mcp"
+ *    "url": "http://127.0.0.1:<port>/mcp"
  *  }
  * }
+ * (Server binds to 127.0.0.1 only; hubServerUrl matches the bind.)
  * The hub automatically namespaces capabilities to avoid conflicts:
  * - "search" tool from filesystem server becomes "filesystem__search"
  * - "search" tool from github server becomes "github__search"

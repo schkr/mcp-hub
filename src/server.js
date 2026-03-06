@@ -122,6 +122,7 @@ class ServiceManager {
     this.mcpHub = new MCPHub(this.config, {
       watch: this.watch,
       port: this.port,
+      host: this.host,
       marketplace,
     });
 

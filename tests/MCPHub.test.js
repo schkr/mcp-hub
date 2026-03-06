@@ -114,6 +114,18 @@ describe("MCPHub", () => {
 
       expect(mcpHub.configManager.updateConfig).toHaveBeenCalledWith(newConfig);
     });
+
+    it("should set hubServerUrl from host and port when provided", () => {
+      mcpHub = new MCPHub("config.json", { port: 37373, host: "127.0.0.1" });
+      expect(mcpHub.host).toBe("127.0.0.1");
+      expect(mcpHub.hubServerUrl).toBe("http://127.0.0.1:37373");
+    });
+
+    it("should default host to localhost when not provided", () => {
+      mcpHub = new MCPHub("config.json", { port: 3000 });
+      expect(mcpHub.host).toBe("localhost");
+      expect(mcpHub.hubServerUrl).toBe("http://localhost:3000");
+    });
   });
 
   describe("Server Management", () => {
