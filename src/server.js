@@ -197,10 +197,11 @@ class ServiceManager {
       });
 
       this.server.on("error", (error) => {
-        this.setState(HubState.ERROR, { message: error.message, code: error.code })
+        this.setState(HubState.ERROR, { message: error.message, code: error.code });
         logger.info(`HTTP_SERVER_START_ERROR: ${error.code}: ${error.message}`);
         reject(
           wrapError(error, "HTTP_SERVER_ERROR", {
+            host: this.host,
             port: this.port,
           })
         );
