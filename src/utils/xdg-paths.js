@@ -70,9 +70,21 @@ export function getDataDirectory() {
 /**
  * Get the runtime directory for daemon PID and log files.
  * Uses XDG_CACHE_HOME/mcp-hub or ~/.cache/mcp-hub.
+ *
+ * Note: The XDG spec recommends XDG_RUNTIME_DIR for PID files, but that
+ * directory is session-scoped and typically cleaned on logout. Since the
+ * mcp-hub daemon is expected to be long-lived and survive user logouts,
+ * we instead use XDG_CACHE_HOME/mcp-hub (or ~/.cache/mcp-hub).
+ *
+ * Unlike other directory helpers in this module, this function does not
+ * call getXDGDirectory() and therefore intentionally does not support the
+ * legacy ~/.mcp-hub fallback. The runtime directory is only for transient
+ * runtime files (PID, logs) and should not reuse the legacy layout.
  */
 export function getRuntimeDirectory() {
   const homeDir = os.homedir();
+  // Intentionally bypass getXDGDirectory() to avoid legacy ~/.mcp-hub
+  // fallbacks for transient runtime data.
   const base = process.env.XDG_CACHE_HOME || path.join(homeDir, '.cache');
   return path.join(base, 'mcp-hub');
 }

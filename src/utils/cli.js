@@ -4,16 +4,14 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import { startServer } from "../server.js";
 import logger from "./logger.js";
-import { readFileSync } from "fs";
-import { fileURLToPath } from "url";
 import fs from "fs";
+import { fileURLToPath } from "url";
 import path from "path";
 import {
   spawnDaemon,
   stopDaemon,
   statusDaemon,
   loadInstances,
-  ensureRuntimeDir,
 } from "./daemon.js";
 import { getRuntimeDirectory } from "./xdg-paths.js";
 
@@ -23,7 +21,7 @@ import { getRuntimeDirectory } from "./xdg-paths.js";
 if (process.env.NODE_ENV != "production") {
   const __dirname = fileURLToPath(new URL(".", import.meta.url));
   const pkgPath = path.join(__dirname, "..", "..", "package.json");
-  const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
   process.env.VERSION = pkg.version;
 }
 
@@ -154,12 +152,11 @@ function runStatusSync(argv) {
     const label =
       result.status === "running"
         ? `running (PID ${result.pid}, port ${result.port})`
-        : `not running (port ${result.port})`;
+        : `${result.status} (port ${result.port})`;
     console.log(`mcp-hub: ${label}`);
     return;
   }
 
-  ensureRuntimeDir();
   const dir = getRuntimeDirectory();
   if (!fs.existsSync(dir)) {
     console.log("mcp-hub: no instances (runtime dir empty)");
@@ -192,6 +189,7 @@ async function main() {
       .option("log-level", { type: "string", choices: ["error", "warn", "info", "debug"], default: defaultLogLevel() })
       .option("debug", { type: "boolean", default: false })
       .option("target", { type: "string", describe: "Instance name or 'all' (default: all)" })
+      .example("mcp-hub start --instances ./instances.json")
       .help("h")
       .alias("h", "help")
       .fail(handleParseError)
@@ -208,6 +206,7 @@ async function main() {
       .option("instances", { type: "string", describe: "Path to instances.json" })
       .option("port", { type: "number", describe: "Port (single-instance mode)" })
       .option("target", { type: "string", describe: "Instance name or 'all' (default: all)" })
+      .example("mcp-hub stop --instances ./instances.json")
       .help("h")
       .alias("h", "help")
       .fail(handleParseError)
@@ -255,8 +254,6 @@ async function main() {
       debug: { describe: "Set log level to debug", type: "boolean", default: false },
     })
     .example("mcp-hub --port 3000 --config ./global.json")
-    .example("mcp-hub start --instances ./instances.json")
-    .example("mcp-hub stop --instances ./instances.json")
     .help("h")
     .alias("h", "help")
     .fail(handleParseError)
