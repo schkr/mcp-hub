@@ -66,3 +66,13 @@ export function getCacheDirectory() {
 export function getDataDirectory() {
   return getXDGDirectory('data');
 }
+
+/**
+ * Get the runtime directory for daemon PID and log files.
+ * Uses XDG_CACHE_HOME/mcp-hub or ~/.cache/mcp-hub.
+ */
+export function getRuntimeDirectory() {
+  const homeDir = os.homedir();
+  const base = process.env.XDG_CACHE_HOME || path.join(homeDir, '.cache');
+  return path.join(base, 'mcp-hub');
+}
