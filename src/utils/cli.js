@@ -4,33 +4,36 @@ import yargs from "yargs";
 import { hideBin } from "yargs/helpers";
 import { startServer } from "../server.js";
 import logger from "./logger.js";
-import { readFileSync } from 'fs';
-import {
-  isMCPHubError,
-} from "./errors.js";
+import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
-import { join } from "path";
+import fs from "fs";
+import path from "path";
+import {
+  spawnDaemon,
+  stopDaemon,
+  statusDaemon,
+  loadInstances,
+  ensureRuntimeDir,
+} from "./daemon.js";
+import { getRuntimeDirectory } from "./xdg-paths.js";
 
 // VERSION will be injected from package.json during build
 /* global process.env.VERSION */
 
-
-// Read version from package.json while in dev mode to get the latest version
-// We can't do this production, due to issues when installed as global package on "bun"
-// Ignore the esbuild build warning id: 'assign-to-define',
 if (process.env.NODE_ENV != "production") {
-  // Get the directory path of the current module
-  const __dirname = fileURLToPath(new URL('.', import.meta.url));
-  // Navigate up two directories to find package.json
-  const pkgPath = join(__dirname, '..', '..', 'package.json');
-  const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
-  const version = pkg.version;
-  process.env.VERSION = version;
+  const __dirname = fileURLToPath(new URL(".", import.meta.url));
+  const pkgPath = path.join(__dirname, "..", "..", "package.json");
+  const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
+  process.env.VERSION = pkg.version;
 }
 
-// Custom failure handler for yargs
+function defaultLogLevel() {
+  const raw = process.env.MCP_HUB_LOG_LEVEL;
+  const normalized = typeof raw === "string" ? raw.trim().toLowerCase() : "";
+  return ["error", "warn", "info", "debug"].includes(normalized) ? normalized : "info";
+}
+
 function handleParseError(msg, err) {
-  // Ensure CLI parsing errors exit immediately with proper code
   logger.error(
     "CLI_ARGS_ERROR",
     "Failed to parse command line arguments",
@@ -41,78 +44,229 @@ function handleParseError(msg, err) {
     },
     true,
     1
-  ); // Add exit:true and exitCode:1
+  );
 }
 
+async function runForeground(argv) {
+  const logLevel = argv.debug ? "debug" : argv["log-level"];
+  await startServer({
+    port: argv.port,
+    config: argv.config,
+    watch: argv.watch,
+    autoShutdown: argv["auto-shutdown"],
+    shutdownDelay: argv["shutdown-delay"],
+    ...(typeof logLevel === "string" && logLevel.trim() !== "" ? { logLevel } : {}),
+  });
+}
 
-async function run() {
+async function runStart(argv) {
+  const logLevel = argv.debug ? "debug" : (argv["log-level"] || defaultLogLevel());
+  const target = (argv.target || "all").toString().toLowerCase();
+
+  if (argv.instances) {
+    const instances = loadInstances(argv.instances);
+    const selected =
+      target === "all" ? instances : instances.filter((i) => i.name.toLowerCase() === target);
+    if (selected.length === 0) {
+      console.error(`No instance(s) matching "${target}". Use: all, or one of: ${instances.map((i) => i.name).join(", ")}`);
+      process.exit(1);
+    }
+    for (const inst of selected) {
+      try {
+        await spawnDaemon(inst.port, inst.config, logLevel);
+        console.log(`mcp-hub: started (port ${inst.port}, ${inst.name})`);
+      } catch (e) {
+        if (e.message && e.message.startsWith("Already running")) {
+          console.warn(`mcp-hub: already running (port ${inst.port}, ${inst.name}), skipping`);
+        } else {
+          console.error(`mcp-hub: ${e.message}`);
+          process.exitCode = 1;
+        }
+      }
+    }
+    return;
+  }
+
+  if (argv.port == null || !argv.config || argv.config.length === 0) {
+    console.error("Single-instance start requires --port and --config (or use --instances PATH)");
+    process.exit(1);
+  }
+  const configPath = Array.isArray(argv.config) ? argv.config[0] : argv.config;
+  try {
+    await spawnDaemon(argv.port, configPath, logLevel);
+    console.log(`mcp-hub: started (PID in ${getRuntimeDirectory()}, port ${argv.port})`);
+  } catch (e) {
+    if (e.message && e.message.startsWith("Already running")) {
+      console.warn(`mcp-hub: already running (port ${argv.port}), skipping`);
+    } else {
+      console.error(`mcp-hub: ${e.message}`);
+      process.exit(1);
+    }
+  }
+}
+
+function runStop(argv) {
+  if (argv.instances) {
+    const instances = loadInstances(argv.instances);
+    const target = (argv.target || "all").toString().toLowerCase();
+    const selected =
+      target === "all" ? instances : instances.filter((i) => i.name.toLowerCase() === target);
+    if (selected.length === 0) {
+      console.error(`No instance(s) matching "${target}". Use: all, or one of: ${instances.map((i) => i.name).join(", ")}`);
+      process.exit(1);
+    }
+    for (const inst of selected) {
+      const result = stopDaemon(inst.port);
+      if (result.stopped) {
+        console.log(`mcp-hub: stopped (PID ${result.pid}, port ${result.port}, ${inst.name})`);
+      } else {
+        console.log(`mcp-hub: ${result.message}`);
+      }
+    }
+    return;
+  }
+
+  if (argv.port == null) {
+    console.error("Single-instance stop requires --port (or use --instances PATH)");
+    process.exit(1);
+  }
+  const result = stopDaemon(argv.port);
+  if (result.stopped) {
+    console.log(`mcp-hub: stopped (PID ${result.pid}, port ${result.port})`);
+  } else {
+    console.log(`mcp-hub: ${result.message}`);
+  }
+}
+
+function runStatusSync(argv) {
+  if (argv.instances) {
+    const instances = loadInstances(argv.instances);
+    for (const inst of instances) {
+      const result = statusDaemon(inst.port);
+      const label = result.status === "running" ? `running (PID ${result.pid})` : result.status;
+      console.log(`mcp-hub: ${inst.name} port ${inst.port}: ${label}`);
+    }
+    return;
+  }
+
+  if (argv.port != null) {
+    const result = statusDaemon(argv.port);
+    const label =
+      result.status === "running"
+        ? `running (PID ${result.pid}, port ${result.port})`
+        : `not running (port ${result.port})`;
+    console.log(`mcp-hub: ${label}`);
+    return;
+  }
+
+  ensureRuntimeDir();
+  const dir = getRuntimeDirectory();
+  if (!fs.existsSync(dir)) {
+    console.log("mcp-hub: no instances (runtime dir empty)");
+    return;
+  }
+  const files = fs.readdirSync(dir).filter((f) => f.endsWith(".pid"));
+  if (files.length === 0) {
+    console.log("mcp-hub: no instances (no PID files)");
+    return;
+  }
+  for (const f of files) {
+    const port = f.replace("mcp-hub-", "").replace(".pid", "");
+    const result = statusDaemon(parseInt(port, 10));
+    const label = result.status === "running" ? `running (PID ${result.pid})` : result.status;
+    console.log(`mcp-hub: port ${port}: ${label}`);
+  }
+}
+
+async function main() {
+  const args = hideBin(process.argv);
+  const sub = args[0];
+
+  if (sub === "start") {
+    const argv = yargs(args.slice(1))
+      .usage("Usage: mcp-hub start [--instances PATH] [target]")
+      .version(process.env.VERSION || "v0.0.0")
+      .option("instances", { type: "string", describe: "Path to instances.json" })
+      .option("port", { type: "number", describe: "Port (single-instance mode)" })
+      .option("config", { type: "array", describe: "Config path (single-instance mode)" })
+      .option("log-level", { type: "string", choices: ["error", "warn", "info", "debug"], default: defaultLogLevel() })
+      .option("debug", { type: "boolean", default: false })
+      .option("target", { type: "string", describe: "Instance name or 'all' (default: all)" })
+      .help("h")
+      .alias("h", "help")
+      .fail(handleParseError)
+      .parseSync();
+    argv.target = argv.target || (argv._ && argv._[0]) || "all";
+    await runStart(argv);
+    return;
+  }
+
+  if (sub === "stop") {
+    const argv = yargs(args.slice(1))
+      .usage("Usage: mcp-hub stop [--instances PATH] [target]")
+      .version(process.env.VERSION || "v0.0.0")
+      .option("instances", { type: "string", describe: "Path to instances.json" })
+      .option("port", { type: "number", describe: "Port (single-instance mode)" })
+      .option("target", { type: "string", describe: "Instance name or 'all' (default: all)" })
+      .help("h")
+      .alias("h", "help")
+      .fail(handleParseError)
+      .parseSync();
+    argv.target = argv.target || (argv._ && argv._[0]) || "all";
+    runStop(argv);
+    return;
+  }
+
+  if (sub === "status") {
+    const argv = yargs(args.slice(1))
+      .usage("Usage: mcp-hub status [--instances PATH | --port N]")
+      .version(process.env.VERSION || "v0.0.0")
+      .option("instances", { type: "string", describe: "Path to instances.json" })
+      .option("port", { type: "number", describe: "Port (single-instance mode)" })
+      .help("h")
+      .alias("h", "help")
+      .fail(handleParseError)
+      .parseSync();
+    runStatusSync(argv);
+    return;
+  }
+
+  // Default: foreground run (original behavior)
   const argv = yargs(hideBin(process.argv))
     .usage("Usage: mcp-hub [options]")
     .version(process.env.VERSION || "v0.0.0")
     .options({
-      port: {
-        alias: "p",
-        describe: "Port to run the server on",
-        type: "number",
-        demandOption: true,
-      },
+      port: { alias: "p", describe: "Port to run the server on", type: "number", demandOption: true },
       config: {
         alias: "c",
         describe: "Path to config file(s). Can be specified multiple times. Merged in order.",
         type: "array",
         demandOption: true,
       },
-      watch: {
-        alias: "w",
-        describe: "Watch for config file changes",
-        type: "boolean",
-        default: false,
-      },
-      "auto-shutdown": {
-        describe: "Whether to automatically shutdown when no clients are connected",
-        type: "boolean",
-        default: false
-      },
-      "shutdown-delay": {
-        describe:
-          "Delay in milliseconds before shutting down when auto-shutdown is enabled and no clients are connected",
-        type: "number",
-        default: 0,
-      },
+      watch: { alias: "w", describe: "Watch for config file changes", type: "boolean", default: false },
+      "auto-shutdown": { describe: "Auto shutdown when no clients", type: "boolean", default: false },
+      "shutdown-delay": { describe: "Delay before shutdown (ms)", type: "number", default: 0 },
       "log-level": {
-        describe: "Log level (error, warn, info, debug). Default: info.",
+        describe: "Log level",
         type: "string",
         choices: ["error", "warn", "info", "debug"],
-        default: (() => {
-          const raw = process.env.MCP_HUB_LOG_LEVEL;
-          const normalized = typeof raw === "string" ? raw.trim().toLowerCase() : "";
-          return ["error", "warn", "info", "debug"].includes(normalized) ? normalized : "info";
-        })(),
+        default: defaultLogLevel(),
       },
-      debug: {
-        describe: "Set log level to debug (shortcut for --log-level debug)",
-        type: "boolean",
-        default: false,
-      },
+      debug: { describe: "Set log level to debug", type: "boolean", default: false },
     })
-    .example("mcp-hub --port 3000 --config ./global.json --config ./project.json")
+    .example("mcp-hub --port 3000 --config ./global.json")
+    .example("mcp-hub start --instances ./instances.json")
+    .example("mcp-hub stop --instances ./instances.json")
     .help("h")
     .alias("h", "help")
-    .fail(handleParseError).argv;
+    .fail(handleParseError)
+    .parseSync();
 
   try {
-    const logLevel = argv.debug ? "debug" : argv["log-level"];
-    await startServer({
-      port: argv.port,
-      config: argv.config, // This will now be an array of paths
-      watch: argv.watch,
-      autoShutdown: argv["auto-shutdown"],
-      shutdownDelay: argv["shutdown-delay"],
-      ...(typeof logLevel === "string" && logLevel.trim() !== "" ? { logLevel } : {}),
-    });
+    await runForeground(argv);
   } catch (error) {
-    process.exit(1)
+    process.exit(1);
   }
 }
 
-run()
+main();
