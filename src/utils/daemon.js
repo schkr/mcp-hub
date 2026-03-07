@@ -98,7 +98,11 @@ export function stopDaemon(port) {
   try {
     process.kill(pid, "SIGTERM");
   } catch (e) {
-    if (e.code !== "ESRCH") throw e;
+    if (e.code === "ESRCH") {
+      fs.unlinkSync(pidPath);
+      return { stopped: false, message: `stale PID file (port ${port})` };
+    }
+    throw e;
   }
   fs.unlinkSync(pidPath);
   return { stopped: true, pid, port };
@@ -133,13 +137,28 @@ export function loadInstances(manifestPath) {
   const absPath = path.resolve(manifestPath);
   const dir = path.dirname(absPath);
   const raw = JSON.parse(fs.readFileSync(absPath, "utf8"));
-  const list = raw.instances || [];
-  return list.map((entry) => {
-    const configRel = entry.config || "";
+  const list = Array.isArray(raw.instances) ? raw.instances : [];
+  return list.map((entry, index) => {
+    if (entry === null || typeof entry !== "object") {
+      throw new Error(`Invalid instance at index ${index}: expected an object.`);
+    }
+    const portNum = Number(entry.port);
+    if (!Number.isInteger(portNum) || portNum <= 0) {
+      throw new Error(`Invalid or missing "port" for instance at index ${index}: got ${entry.port}`);
+    }
+    const cfg = entry.config;
+    if (typeof cfg !== "string" || cfg.trim() === "") {
+      throw new Error(`Invalid or missing "config" for instance at index ${index}: expected non-empty string.`);
+    }
+    const configRel = cfg.trim();
     const configAbs = path.isAbsolute(configRel) ? configRel : path.join(dir, configRel);
+    const name =
+      typeof entry.name === "string" && entry.name.trim() !== ""
+        ? entry.name.trim()
+        : String(portNum);
     return {
-      name: entry.name || String(entry.port),
-      port: Number(entry.port),
+      name,
+      port: portNum,
       config: configAbs,
     };
   });
